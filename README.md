@@ -1,0 +1,2 @@
+# ZYNQ_PLPS_LOOP
+在ZYNQ中设计了自定义的PL端数据处理器，通过DMA连接到AXI总线，完成了PS和该PL端的数据交互等功能。
