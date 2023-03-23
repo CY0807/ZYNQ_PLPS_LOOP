@@ -37,47 +37,61 @@ PS端通过配置寄存器控制着DMA的传输方向、坐标和开始，在AXI
 PL端外设的核心代码如下
 
 ````
-module processor
-(
+module acc(
     input clk,
-    input rst_n,
+
+    input wire [31:0]M_AXIS_MM2S_0_tdata,
+    input wire [3:0]M_AXIS_MM2S_0_tkeep,
+    input wire M_AXIS_MM2S_0_tlast,
+    output wire M_AXIS_MM2S_0_tready,
+    input wire M_AXIS_MM2S_0_tvalid,
     
-    input [31:0] reg0,
-    input fifo_rden,
-    input fifo_wren,
-    input  [31:0] fifo_wr_data,
-    output [31:0] fifo_rd_data,
-    output intr,
-    output empty,
-    output [9:0] data_count
-);
+    output wire [31:0]S_AXIS_S2MM_0_tdata,
+    output wire [3:0]S_AXIS_S2MM_0_tkeep,
+    output wire S_AXIS_S2MM_0_tlast,
+    input wire S_AXIS_S2MM_0_tready,
+    output wire S_AXIS_S2MM_0_tvalid,
+    
+    input wire mm2s_prmry_reset_out_n_0,    
+    input wire s2mm_prmry_reset_out_n_0,
+    
+    input wire [31:0]reg0_0
+    );
 
-reg [31:0] din;
-reg wr_en;
+wire empty, full, almost_empty, almost_full, valid, rd_en, wr_en, srst;
+wire [31:0] din, dout;
+wire [8:0] data_count;
 
+// MM2S
+assign S_AXIS_S2MM_0_tdata = dout;
+assign S_AXIS_S2MM_0_tkeep = 4'b1111;
+assign S_AXIS_S2MM_0_tvalid = valid;
+assign S_AXIS_S2MM_0_tlast = almost_empty & (~empty);
 
-always@(posedge clk) begin
-    wr_en <= fifo_wren;
-    if(reg0 == 0) 
-        din <= ~fifo_wr_data;
-    else if(reg0 == 1)
-        din <= fifo_wr_data + 1;
-    else
-        din <= fifo_wr_data;
-end
+// S2MM
+assign M_AXIS_MM2S_0_tready = ~almost_full;
 
-fifo_generator_0 your_instance_name (
-  .clk(clk),      // input wire clk
-  .srst(~rst_n),    // input wire srst
-  .din(din),      // input wire [31 : 0] din
-  .wr_en(wr_en),  // input wire wr_en
-  .rd_en(fifo_rden),  // input wire rd_en
-  .dout(fifo_rd_data),    // output wire [31 : 0] dout
-  .full(),    // output wire full
-  .empty(empty0),  // output wire empty
-  .data_count(data_count)  // output wire [9 : 0] data_count
-);
-
+// FIFO
+assign srst = ~(mm2s_prmry_reset_out_n_0 | s2mm_prmry_reset_out_n_0);
+assign wr_en = M_AXIS_MM2S_0_tready & M_AXIS_MM2S_0_tvalid;
+assign din = M_AXIS_MM2S_0_tdata;
+assign rd_en = S_AXIS_S2MM_0_tready & S_AXIS_S2MM_0_tvalid;
+    
+fifo_generator_0 fifo0 (
+  .clk(clk),                    // input wire clk
+  .srst(srst),                  // input wire srst
+  .din(din),                    // input wire [31 : 0] din
+  .wr_en(wr_en),                // input wire wr_en
+  .rd_en(rd_en),                // input wire rd_en
+  .dout(dout),                  // output wire [31 : 0] dout
+  .full(full),                  // output wire full
+  .empty(empty),                // output wire empty
+  .almost_empty(almost_empty),  // output wire almost_empty
+  .almost_full(almost_full),
+  .valid(valid),                // output wire valid
+  .data_count(data_count)      // output wire [8 : 0] data_count
+);    
+    
 endmodule
 
 ````
